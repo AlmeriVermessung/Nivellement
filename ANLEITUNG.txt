@@ -1,118 +1,43 @@
-NIVELFELDBUCH 1.2 — INSTALLATION, UPDATE UND BEDIENUNG
-=======================================================
+ALMERI FELDBUCH – KURZANLEITUNG v1.3
+=====================================
 
-NEU IN VERSION 1.2
-- Eine Messung direkt in „Messen“ zurücknehmen und ihre Eingabewerte erneut verwenden.
-- Letzten Vorblick direkt in Zwischenblick ändern. Ablesung, Entfernung,
-  Bemerkung, Zeit und gegebenenfalls das Foto bleiben erhalten.
-- Mehrere vollständig voneinander getrennte Nivellementschleifen je Projekt.
-- Schleifenauswahl oben auf allen Seiten, neue Schleifen über „+ Schleife“.
-- Für jede Schleife eigene Punkte, Starthöhe, Messungen, Schlusskontrolle,
-  Strecke und streckenproportionale Korrektur.
-- Jede Schleife einzeln als CSV oder alle Schleifen desselben Projekts als
-  zusammengefasste CSV (mehrere nacheinanderstehende Feldbuchabschnitte).
-- Nachvollziehbares Änderungsprotokoll der zurückgenommenen/umgewandelten
-  Messungen im JSON-Backup und am Ende des CSV-Exports.
+NEU IN VERSION 1.3
+- Almeri Branding und Logo.
+- Ganze Projekte löschen.
+- Einzelne Schleifen innerhalb eines Projekts löschen.
+- Die Liste „Letzte Messungen“ zeigt nur die aktive Schleife.
+- Vorhandene Daten aus älteren Versionen werden übernommen.
 
 WICHTIG VOR JEDEM UPDATE
-1. Die bisherige iPhone-App öffnen (vom Home-Bildschirm).
-2. Feldbuch -> Sicherung JSON herunterladen und außerhalb der App sichern,
-   zum Beispiel unter Dateien/iCloud Drive. Falls nötig auch CSV exportieren.
-3. Die bisherige App nicht löschen! Sie enthält den lokalen Messdatenspeicher.
-4. Nur die PROGRAMMDATEIEN bei GitHub austauschen; keine iPhone-Websitedaten
-   löschen und nicht den Safari-Cache/Verlauf komplett leeren.
-5. Nach dem Start von Version 1.2 kontrollieren, ob die vorhandenen Messungen
-   als „Schleife 1“ innerhalb des bisherigen Projekts erscheinen.
+1. In der App unter Feldbuch eine JSON-Sicherung exportieren.
+2. Die bestehende Home-Bildschirm-App nicht löschen.
+3. Nur die Programmdateien im GitHub-Repository ersetzen.
 
-GITHUB-PAGES-UPDATE DES BEREITS EINGERICHTETEN REPOSITORYS
-1. NivelFeldbuch_iPhone_v1_2.zip auf dem PC entpacken.
-2. https://github.com/AlmeriVermessung/Nivellement öffnen.
-3. „Code“ -> „Add file“ -> „Upload files“.
-4. Den kompletten INHALT des entpackten Unterordners „NivelFeldbuch“
-   hochladen und vorhandene gleichnamige Dateien aktualisieren.
-   Wichtig: index.html, app.mjs, calc.mjs, style.css, state.mjs, ocr.mjs,
-   sw.js und manifest.webmanifest müssen direkt im REPOSITORY-HAUPTORDNER
-   liegen; icons/ enthält die App-Symbole.
-   Keine ZIP-Datei direkt hochladen und keinen zusätzlichen NivelFeldbuch-
-   Unterordner im Repository anlegen.
-5. „Commit changes“ ausführen.
-6. Unter „Actions“ den erfolgreichen Pages-Build abwarten.
-7. Die Webadresse in Safari öffnen:
-      https://almerivermessung.github.io/Nivellement/?v=1.2
-   Eventuell ein zweites Mal aktualisieren, damit der neue Service Worker
-   alle Programmdateien übernimmt. Danach die Home-Bildschirm-App schließen
-   und wieder öffnen. Unten muss „v1.2“ angezeigt werden.
-8. Falls die alte Version hängen bleibt, NICHT sofort die App löschen,
-   sondern zuerst den Sicherungsstand kontrollieren und den Seitenaufruf
-   mit der Adresse aus Schritt 7 erneut versuchen.
+UPDATE ÜBER GITHUB PAGES
+1. AlmeriFeldbuch_iPhone_v1_3.zip am PC entpacken.
+2. Das Repository unter GitHub öffnen.
+3. Code -> Add file -> Upload files.
+4. Den kompletten INHALT des Unterordners „AlmeriFeldbuch“
+   ins Hauptverzeichnis des Repositorys hochladen und vorhandene Dateien ersetzen.
+5. Commit changes klicken.
+6. Nach dem Pages-Build im iPhone-Safari öffnen:
+      https://almerivermessung.github.io/Nivellement/?v=1.3
+7. Falls noch die alte Version angezeigt wird:
+   - Seite neu laden
+   - Web-App vollständig schließen und neu öffnen
+   - notfalls erneut zum Home-Bildschirm hinzufügen
 
-FÜR ERSTMALIGE INSTALLATION
-Wie zuvor: GitHub Pages auf main/(root) freischalten. Im iPhone Safari
-„Teilen“ -> „Zum Home-Bildschirm hinzufügen“ -> „Als Web-App öffnen“.
+LÖSCHEN VON DATEN
+- Aktive Schleife löschen:
+  Im Reiter Projekt auf „Aktive Schleife löschen“ tippen.
+  Wenn es die letzte Schleife des Projekts ist, wird automatisch eine neue leere Schleife angelegt.
 
-MESSSCHRITTE
-1. Im Reiter „Projekt“ Projektname vergeben. Für jede neue Schleife unter
-   „Aktive Schleife – Einstellungen“ den Schleifennamen, Startpunkt und
-   die tatsächlich bekannte Starthöhe einstellen und speichern.
-   Neue Schleifen starten mit BEISPIELWERTEN HFP-01 / 100,0000 m.
-   Diese Werte dürfen nicht unkontrolliert übernommen werden.
-2. „Rückblick“ mit Punktnummer, Rh (Lattenablesung) und optional Hd
-   (Entfernung in Metern) messen, speichern.
-3. Beliebige Zwischenblicke und anschließend Vorblick auf Wechselpunkt.
-4. Gerät umstellen, Rückblick auf denselben Wechselpunkt messen.
-5. Zielpunkt und bekannte Sollhöhe in den Schleifeneinstellungen
-   hinterlegen. Für die streckenproportionale Korrektur muss ein
-   abgeschlossener Zug mit Vorblick auf den Endpunkt vorliegen.
+- Aktives Projekt löschen:
+  Im Reiter Projekt auf „Aktives Projekt löschen“ tippen.
+  Wenn es das letzte Projekt ist, wird automatisch ein neues leeres Projekt angelegt.
 
-RÜCKGÄNGIG UND VORBLICK → ZWISCHENBLICK
-- Unter „Messen“ gibt es „Letzte Messung zurücknehmen“.
-  Sicherheitsfrage bestätigen. Der letzte Datensatz wird aus der aktiven
-  Messfolge genommen, seine Werte werden wieder in die Eingabemaske
-  geschrieben. Du kannst dann einen anderen Typ wählen und neu speichern.
-- Wenn die LETZTE Messung ein Vorblick ist, erscheint zusätzlich
-  „Vorblick → Zwischenblick“. Diese Aktion ändert lediglich die Messart
-  dieses letzten Datensatzes: der Standpunkt bleibt offen. Die gespeicherten
-  Rohwerte und das Foto bleiben erhalten.
-- Änderungen an weiter zurückliegenden Messungen: spätere Beobachtungen
-  nacheinander zurücknehmen. Es gibt keine freie nachträgliche Bearbeitung
-  beliebiger alter Messungen.
-- Das Änderungsprotokoll dokumentiert solche Schritte; die Rohdaten der
-  aktiven Messfolge und die Rechnung werden nach jeder Aktion neu bestimmt.
+HINWEIS ZU „LETZTE MESSUNGEN“
+Diese Liste zeigt nur Messungen aus der aktuell aktiven Schleife.
 
-MEHRERE SCHLEIFEN
-- Oben in „AKTIVE NIVELLEMENTSCHLEIFE“ wechseln oder „+ Schleife“ anklicken.
-- Die neue Schleife erhält einen eigenen Namen, Höhenbezug, Beobachtungssatz,
-  Zielhöhe, Schlussfehler und ggf. Korrektur. Die App verknüpft keine Höhen
-  zwischen den Schleifen von selbst. Eine Schleife kann auch noch offen sein,
-  während du in einer anderen arbeitest.
-- Unter „Projekt“ stehen alle Schleifen mit Messungszahl und Start-/Zielpunkt.
-- „Schleife als CSV“ exportiert nur die aktuelle Schleife. „Alle Schleifen
-  als CSV“ erzeugt eine CSV mit nacheinander angeordneten Feldbuchabschnitten.
-- „Sicherung JSON“ umfasst ALLE Projekte und ALLE zugehörigen Schleifen.
-- Bereits bestehende v1.0/v1.1-Projekte werden automatisch als Projekte mit
-  je einer „Schleife 1“ übernommen, ohne ihre Beobachtungen zu verändern.
-
-STRECKEN UND AUSGLEICHUNG
-- Hd optional je RB, VB oder ZB eintippen oder aus einem Displayfoto nehmen.
-- Für den einfachen streckenproportionalen Schlussfehlerausgleich müssen alle
-  RB- UND VB-Entfernungen der betreffenden Schleife vorhanden sein.
-- Die ZB-Entfernungen werden gespeichert, gehen aber NICHT in die Gewichtung
-  der Zuglängenanteile ein. Eine ZB bekommt nur die Korrektur des
-  Standpunktbeginns. Keine statistische Netzausgleichung!
-- Die ursprünglichen Rohwerte bleiben unverändert. Projektspezifische
-  Toleranzen, Plausibilität und unabhängige Schließungen sind notwendig.
-
-DATENSCHUTZ UND OFFLINE
-- Die App-Quelldateien liegen bei einem öffentlichen Pages-Repository.
-- Messdaten liegen lokal im IndexedDB-Speicher der iPhone-Web-App; sie
-  werden nicht automatisch an GitHub oder einen Server übermittelt.
-- Ein geplanter JSON-Export ist für Datensicherheit erforderlich.
-- Manuelle Feldbuchfunktionen laufen offline nach erfolgreichem Laden.
-- Die experimentelle OCR lädt benötigte Komponenten beim ersten Mal aus dem
-  Internet und ist für vollständig offline verfügbare Messung nicht garantiert.
-- OCR-Vorschläge vor Übernahme JEDES MAL am Originaldisplay kontrollieren.
-
-QUALITÄTSSICHERUNG
-Das Programm ist eine nicht zertifizierte Eigenentwicklung. Für Bau- und
-Aufzugvermessung vor dem produktiven Einsatz mit unabhängigen bekannten
-Höhenzügen prüfen. Eine Schlussfehlerverteilung ersetzt keine Kontrollmessung.
+BACKUP
+Im Reiter Feldbuch über „Sicherung JSON“ exportieren.

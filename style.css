@@ -14,3 +14,5 @@
 .undo-bar button{flex:1;min-width:150px}
 @media(max-width:380px){.loop-strip{flex-wrap:wrap}.loop-strip .small{flex:0 0 auto}}
 @media print{.loop-strip,.undo-bar{display:none!important}}
+
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}

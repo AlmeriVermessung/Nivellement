@@ -1,6 +1,6 @@
-// NivelFeldbuch — Rechenkern. Alle Höhen intern als 0,1 mm (= 0,0001 m).
+// Almeri Feldbuch — Rechenkern. Alle Höhen intern als 0,1 mm (= 0,0001 m).
 // Distanzbasierte Korrektur: einfaches streckenproportionales Verteilen eines
-// bekannten Schlussfehlers auf einen einzelnen RB/VB-Nivellementzug.
+// bekannten Schlussfehlers auf einen einzelnen RB/VB-Messzug.
 // Dies ist KEINE Netz-Ausgleichung nach kleinsten Quadraten.
 export function parseMeters(input, {allowNegative=false, max=100000}={}) {
   const s = String(input ?? '').trim().replace(/\s/g,'').replace(',','.');
@@ -73,7 +73,7 @@ export function checkSequence(run) {
   // Jede vollständige Standpunkthöhendifferenz RB−VB erhält das Gewicht
   // (Distanz RB + Distanz VB). ZB sind Seitensichten und zählen nicht zur Zuglänge.
   const adjustment={available:false,reason:'',totalLength:null,errorTicks:closure?.error??null,stations:[],rows:[]};
-  if(!closure)adjustment.reason='Für die Ausgleichung Zielpunkt und Sollhöhe hinterlegen und den Nivellementzug dort abschließen.';
+  if(!closure)adjustment.reason='Für die Ausgleichung Zielpunkt und Sollhöhe hinterlegen und den Messzug dort abschließen.';
   else if(!closure.closedStation||!closure.isLastObservation||hi!==null)
     adjustment.reason='Der letzte Messwert muss ein Vorblick auf den Zielhöhenfestpunkt sein (Standpunkt vollständig abgeschlossen).';
   else if(stations.some(s=>s.vbPoint===null))adjustment.reason='Mindestens ein Standpunkt ist nicht abgeschlossen.';

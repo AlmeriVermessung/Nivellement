@@ -1,22 +1,29 @@
-import {parseMeters,formatM,formatSignedMm,checkSequence,csvForRun} from './calc.mjs?v=1.2';
-import {runOcr} from './ocr.mjs?v=1.2';
-import {createRun,createProject,migrateState,getRun} from './state.mjs?v=1.2';
+import {parseMeters,formatM,formatSignedMm,checkSequence,csvForRun} from './calc.mjs?v=1.3';
+import {runOcr} from './ocr.mjs?v=1.3';
+import {createRun,createProject,migrateState,getRun} from './state.mjs?v=1.3';
 const $=id=>document.getElementById(id);
-let state={version:2,projects:[],active:null}, project=null, run=null, calc=null, selectedKind='RB',activeTab='messen';
+let state={version:3,projects:[],active:null}, project=null, run=null, calc=null, selectedKind='RB',activeTab='messen';
 let pendingPhoto=null, pendingOcrText='', pendingSource='manuell', photoCanvas=$('photoCanvas'), photoRect={x:.175,y:.38,w:.60,h:.185};
 let storageWarning='', db=null,saveTimer=0,toastTimer=0;
 const uuid=()=>crypto.randomUUID?.()||String(Date.now()+Math.random());
 const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const setMsg=(msg)=>{const t=$('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.add('hidden'),3500)};
-function readDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open('nivelfeldbuch-data',1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('kv'))req.result.createObjectStore('kv');};req.onsuccess=()=>{db=req.result;const tx=db.transaction('kv','readonly');const rq=tx.objectStore('kv').get('state');rq.onsuccess=()=>resolve(rq.result);rq.onerror=()=>reject(rq.error);};req.onerror=()=>reject(req.error);});}
+const legacyDbName=['ni','vel','feld','buch','-data'].join('');
+const legacyStateKey=['ni','vel','feld','buch','-state'].join('');
+function openDb(name){return new Promise((resolve,reject)=>{const req=indexedDB.open(name,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('kv'))req.result.createObjectStore('kv');};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
+async function readDb(){
+ try{db=await openDb('almeri-feldbuch-data');const value=await new Promise((resolve,reject)=>{const tx=db.transaction('kv','readonly');const rq=tx.objectStore('kv').get('state');rq.onsuccess=()=>resolve(rq.result);rq.onerror=()=>reject(rq.error);});if(value)return value;}catch(e){}
+ try{const legacyDb=await openDb(legacyDbName);const value=await new Promise((resolve,reject)=>{const tx=legacyDb.transaction('kv','readonly');const rq=tx.objectStore('kv').get('state');rq.onsuccess=()=>resolve(rq.result);rq.onerror=()=>reject(rq.error);});try{legacyDb.close();}catch{}if(value){try{db=await openDb('almeri-feldbuch-data');}catch{}return value;}}catch(e){}
+ try{return JSON.parse(localStorage.getItem('almeri-feldbuch-state'))||JSON.parse(localStorage.getItem(legacyStateKey));}catch{return null;}
+}
 function writeDb(value){return new Promise((resolve,reject)=>{if(!db)return reject(Error('DB nicht verfügbar'));const tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(value,'state');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}
 async function load(){
  let saved=null;
  try{saved=await readDb();}catch(e){
   storageWarning='Nur temporäre Speicherung verfügbar';
-  try{saved=JSON.parse(localStorage.getItem('nivelfeldbuch-state'));}catch{}
+  try{saved=JSON.parse(localStorage.getItem('almeri-feldbuch-state'))||JSON.parse(localStorage.getItem(legacyStateKey));}catch{}
  }
- try{state=saved?.projects?.length?migrateState(saved):{version:2,projects:[],active:null};}
+ try{state=saved?.projects?.length?migrateState(saved):{version:3,projects:[],active:null};}
  catch(e){storageWarning='Datenfehler: JSON-Sicherung prüfen';setMsg('Gespeicherte Projekte nicht geladen: '+e.message);return;}
  if(!state.projects.length){const created=createProject();state.projects=[created];state.active=created.id;}
  project=state.projects.find(p=>p.id===state.active)||state.projects[0];state.active=project.id;
@@ -28,7 +35,7 @@ async function load(){
  if('serviceWorker' in navigator && location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 function persist(){clearTimeout(saveTimer);$('storageState').textContent='Speichere …';saveTimer=setTimeout(async()=>{
- try{if(db)await writeDb(state);else localStorage.setItem('nivelfeldbuch-state',JSON.stringify(state));$('storageState').textContent=storageWarning||'Lokal gespeichert';}
+ try{if(db)await writeDb(state);else {localStorage.setItem('almeri-feldbuch-state',JSON.stringify(state));localStorage.setItem(legacyStateKey,JSON.stringify(state));}$('storageState').textContent=storageWarning||'Lokal gespeichert';}
  catch(e){$('storageState').textContent='Sicherung dringend erforderlich';setMsg('Speicherfehler. Bitte JSON-Sicherung exportieren!');}
 },300);}
 function current(){try{return checkSequence(run)}catch(e){setMsg('Datenfehler: '+e.message);return null}}
@@ -115,10 +122,12 @@ function fillProject(){
  $('startPoint').disabled=run.obs.length>0;$('startH').disabled=run.obs.length>0;
  $('projectCount').textContent=state.projects.length+' Projekte';
  $('loopCount').textContent=project.runs.length+' Schleifen';
- $('loopList').innerHTML=project.runs.map(r=>`<div class="project-entry"><div><strong>${escapeHtml(r.name)}</strong><span class="muted">${r.obs.length} Messungen · ${escapeHtml(r.startPoint)} → ${escapeHtml(r.endPoint||'offen')}</span></div><button class="${r.id===run.id?'secondary':'ghost'}" data-loop="${escapeHtml(r.id)}">${r.id===run.id?'Aktiv':'Öffnen'}</button></div>`).join('');
- $('projectList').innerHTML=state.projects.map(p=>`<div class="project-entry"><div><strong>${escapeHtml(p.name)}</strong><span class="muted">${p.runs.length} Schleife(n) · ${p.runs.reduce((a,r)=>a+r.obs.length,0)} Messungen</span></div><button class="${p.id===project.id?'secondary':'ghost'}" data-switch="${escapeHtml(p.id)}">${p.id===project.id?'Aktiv':'Öffnen'}</button></div>`).join('');
+ $('loopList').innerHTML=project.runs.map(r=>`<div class="project-entry"><div><strong>${escapeHtml(r.name)}</strong><span class="muted">${r.obs.length} Messungen · ${escapeHtml(r.startPoint)} → ${escapeHtml(r.endPoint||'offen')}</span></div><div class="row-actions"><button class="${r.id===run.id?'secondary':'ghost'}" data-loop="${escapeHtml(r.id)}">${r.id===run.id?'Aktiv':'Öffnen'}</button><button class="ghost" data-delete-loop="${escapeHtml(r.id)}">Löschen</button></div></div>`).join('');
+ $('projectList').innerHTML=state.projects.map(p=>`<div class="project-entry"><div><strong>${escapeHtml(p.name)}</strong><span class="muted">${p.runs.length} Schleife(n) · ${p.runs.reduce((a,r)=>a+r.obs.length,0)} Messungen</span></div><div class="row-actions"><button class="${p.id===project.id?'secondary':'ghost'}" data-switch="${escapeHtml(p.id)}">${p.id===project.id?'Aktiv':'Öffnen'}</button><button class="ghost" data-delete-project="${escapeHtml(p.id)}">Löschen</button></div></div>`).join('');
  document.querySelectorAll('[data-switch]').forEach(b=>b.addEventListener('click',()=>switchProject(b.dataset.switch)));
  document.querySelectorAll('[data-loop]').forEach(b=>b.addEventListener('click',()=>switchLoop(b.dataset.loop)));
+ document.querySelectorAll('[data-delete-loop]').forEach(b=>b.addEventListener('click',()=>deleteLoop(b.dataset.deleteLoop)));
+ document.querySelectorAll('[data-delete-project]').forEach(b=>b.addEventListener('click',()=>deleteProject(b.dataset.deleteProject)));
 }
 function saveProjectName(){
  const name=$('projectName').value.trim();if(!name){setMsg('Projektname fehlt.');return;}
@@ -152,6 +161,23 @@ function addLoop(){
  project.runs.push(r);run=r;project.activeRun=r.id;clearDraft();persist();renderAll();fillProject();goTab('projekt');
  setMsg('Neue unabhängige Schleife angelegt: Startpunkt und -höhe einstellen!');
 }
+function deleteLoop(id=run?.id){
+ const target=project.runs.find(x=>x.id===id);if(!target)return;
+ if(!confirm(`Schleife „${target.name}“ wirklich löschen? ${target.obs.length} Messung(en) und alle Einstellungen dieser Schleife gehen verloren.`))return;
+ project.runs=project.runs.filter(x=>x.id!==target.id);
+ if(!project.runs.length){project.runs=[createRun('Schleife 1',target.tolerance||'3,0')];}
+ if(target.id===run.id||!project.runs.some(x=>x.id===project.activeRun))project.activeRun=project.runs[0].id;
+ run=getRun(project);clearDraft();persist();renderAll();fillProject();goTab('projekt');setMsg('Schleife gelöscht');
+}
+function deleteProject(id=project?.id){
+ const target=state.projects.find(x=>x.id===id);if(!target)return;
+ if(!confirm(`Projekt „${target.name}“ wirklich löschen? ${target.runs.length} Schleife(n) und alle zugehörigen Messungen gehen verloren.`))return;
+ state.projects=state.projects.filter(x=>x.id!==target.id);
+ if(!state.projects.length){const replacement=createProject();state.projects=[replacement];state.active=replacement.id;}
+ else if(state.active===target.id){state.active=state.projects[0].id;}
+ project=state.projects.find(x=>x.id===state.active)||state.projects[0];run=getRun(project);project.activeRun=run.id;
+ clearDraft();persist();renderAll();fillProject();goTab('projekt');setMsg('Projekt gelöscht');
+}
 function exportFile(filename,content,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),45000);}
 function safeName(s){return String(s).replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g,'_').slice(0,45);}
 function reportCsv(){try{exportFile(safeName(project.name)+'_'+safeName(run.name)+'_Feldbuch.csv',csvForRun(run,project.name),'text/csv;charset=utf-8');}catch(e){setMsg(e.message);}}
@@ -159,7 +185,7 @@ function allLoopsCsv(){try{
  const content='\uFEFF'+project.runs.map(r=>csvForRun(r,project.name).replace(/^\uFEFF/,'')).join('\r\n\r\n');
  exportFile(safeName(project.name)+'_alle_Schleifen.csv',content,'text/csv;charset=utf-8');
  }catch(e){setMsg(e.message);}}
-function exportJson(){exportFile('NivelFeldbuch_Sicherung_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({version:2,exportedAt:new Date().toISOString(),...state},null,2),'application/json');}
+function exportJson(){exportFile('AlmeriFeldbuch_Sicherung_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({version:3,exportedAt:new Date().toISOString(),...state},null,2),'application/json');}
 async function importFile(file){if(!file)return;try{
  const raw=JSON.parse(await file.text()),obj=migrateState(raw);
  if(!obj.projects.length)throw Error('Keine Projekte in der Sicherung.');
@@ -221,7 +247,7 @@ function bind(){
  document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>goTab(b.dataset.tab)));
  document.querySelectorAll('[data-kind]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)chooseKind(b.dataset.kind);}));
  for(const id of ['readingInput','pointInput','distanceInput'])$(id).addEventListener('input',updatePreview);
- on('saveReading',saveReading);on('saveProject',saveProject);on('saveProjectName',saveProjectName);on('newProject',addProject);on('newLoop',addLoop);
+ on('saveReading',saveReading);on('saveProject',saveProject);on('saveProjectName',saveProjectName);on('newProject',addProject);on('newLoop',addLoop);on('deleteLoop',()=>deleteLoop());on('deleteProject',()=>deleteProject());
  $('loopSelect').addEventListener('change',ev=>switchLoop(ev.target.value));
  on('undoLastQuick',undo);on('reclassifyLast',reclassifyLast);
  $('adjustToggle').addEventListener('change',ev=>{run.showAdjustment=ev.target.checked;persist();renderLedger();});

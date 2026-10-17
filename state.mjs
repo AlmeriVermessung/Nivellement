@@ -1,5 +1,5 @@
-// NivelFeldbuch v1.2: Projekt enthält beliebig viele unabhängige Nivellement-Schleifen.
-// Altdaten aus v1.0/v1.1 werden 1:1 als erste Schleife übernommen.
+// Almeri Feldbuch v1.3: Projekt enthält beliebig viele unabhängige Schleifen.
+// Altdaten aus früheren Versionen werden 1:1 als erste Schleife übernommen.
 const id=()=>globalThis.crypto?.randomUUID?.() || `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export function createRun(name='Schleife 1',tol='3,0'){
  return {id:id(),name,startPoint:'HFP-01',startH:'100,0000',endPoint:'',endH:'',tolerance:tol,
@@ -13,7 +13,7 @@ export function migrateState(input){
  const projects=input.projects.map(p=>{
    if(Array.isArray(p.runs)){
      if(!p.runs.length) throw Error('Projekt ohne Schleife.');
-     const runs=p.runs.map(r=>({...r,history:Array.isArray(r.history)?r.history:[],confirmedStart:r.confirmedStart!==false}));
+     const runs=p.runs.map((r,i)=>({...r,name:r.name||`Schleife ${i+1}`,history:Array.isArray(r.history)?r.history:[],confirmedStart:r.confirmedStart!==false}));
      return {...p,runs,activeRun:runs.some(r=>r.id===p.activeRun)?p.activeRun:runs[0].id};
    }
    if(!Array.isArray(p.obs)) throw Error('Ungültiges Altprojekt.');
@@ -21,6 +21,6 @@ export function migrateState(input){
    return {id:p.id,name:p.name||'Projekt',created:p.created||Date.now(),runs:[r],activeRun:r.id};
  });
  const active=projects.some(p=>p.id===input.active)?input.active:projects[0]?.id||null;
- return {version:2,projects,active};
+ return {version:3,projects,active};
 }
 export function getRun(project){return project?.runs.find(r=>r.id===project.activeRun) || project?.runs[0] || null;}
