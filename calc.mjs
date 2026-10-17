@@ -107,10 +107,10 @@ export function checkSequence(run) {
   return {rows,stations,station,pending,needsBacksight:hi===null,hi,finalH,sumRB,sumVB,length,measuredLegs,expectedLegs,missingLegs,
     closure,tolMm,totalBackDistance,totalForeDistance,pointHeights,netRise:sumRB-sumVB,riseFallCumulative,last,adjustment};
 }
-export function csvForRun(run) {
+export function csvForRun(run, projectName=run.name) {
  const c=checkSequence(run),q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
  const enabled=!!run.showAdjustment&&c.adjustment.available;
- const out=[['Projekt',run.name],['Startpunkt',run.startPoint],['Starthöhe [m]',run.startH],['Zielpunkt',run.endPoint||''],
+ const out=[['Projekt',projectName],['Schleife',run.name],['Startpunkt',run.startPoint],['Starthöhe [m]',run.startH],['Zielpunkt',run.endPoint||''],
   ['Sollhöhe Ziel [m]',run.endH||''],['Streckenausgleichung gewählt',run.showAdjustment?'ja':'nein'],
   ['Streckenausgleichung berechenbar',c.adjustment.available?'ja':'nein'],[],
   ['Nr','Zeit','Standpunkt','Typ','Punkt','Lattenablesung [m]','Distanz Hd [m]','Berechnete Höhe roh [m]',
@@ -138,5 +138,6 @@ export function csvForRun(run) {
  else out.push(['Streckenausgleichung nicht angewendet',c.adjustment.reason||'Nicht ausgewählt']);
  if(c.closure&&Math.abs(c.closure.error/10)>c.tolMm)out.push(['ACHTUNG','Roh-Schlussfehler überschreitet die projektspezifische Toleranz. Messung und Bezugspunkte prüfen, Korrektur ist KEINE Freigabe.']);
  out.push(['Hinweis','Einfache streckenproportionale Korrektur für einen Zug; keine Netz-Ausgleichung oder unabhängiger Genauigkeitsnachweis']);
+ if(run.history?.length){out.push([],['Änderungsprotokoll (Messungen zurückgenommen / Messart geändert)'],['Zeit','Aktion','Originalart','Punkt','Rh [m]','Bemerkung']);for(const a of run.history)out.push([new Date(a.time).toLocaleString('de-DE'),a.type,a.observation?.kind||'',a.observation?.point||'',a.observation?.reading||'',a.details||'']);}
  return '\uFEFF'+out.map(arr=>arr.map(q).join(';')).join('\r\n');
 }

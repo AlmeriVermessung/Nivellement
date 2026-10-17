@@ -1,21 +1,29 @@
-import {parseMeters,formatM,formatSignedMm,checkSequence,csvForRun} from './calc.mjs';
-import {runOcr} from './ocr.mjs';
+import {parseMeters,formatM,formatSignedMm,checkSequence,csvForRun} from './calc.mjs?v=1.2';
+import {runOcr} from './ocr.mjs?v=1.2';
+import {createRun,createProject,migrateState,getRun} from './state.mjs?v=1.2';
 const $=id=>document.getElementById(id);
-let state={projects:[],active:null}, run=null, calc=null, selectedKind='RB',activeTab='messen';
+let state={version:2,projects:[],active:null}, project=null, run=null, calc=null, selectedKind='RB',activeTab='messen';
 let pendingPhoto=null, pendingOcrText='', pendingSource='manuell', photoCanvas=$('photoCanvas'), photoRect={x:.175,y:.38,w:.60,h:.185};
 let storageWarning='', db=null,saveTimer=0,toastTimer=0;
 const uuid=()=>crypto.randomUUID?.()||String(Date.now()+Math.random());
-const newRun=()=>({id:uuid(),name:'Neues Nivellement',startPoint:'HFP-01',startH:'100,0000',endPoint:'',endH:'',tolerance:'3,0',showAdjustment:false,obs:[],created:Date.now()});
 const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const setMsg=(msg)=>{const t=$('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.add('hidden'),3500)};
 function readDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open('nivelfeldbuch-data',1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('kv'))req.result.createObjectStore('kv');};req.onsuccess=()=>{db=req.result;const tx=db.transaction('kv','readonly');const rq=tx.objectStore('kv').get('state');rq.onsuccess=()=>resolve(rq.result);rq.onerror=()=>reject(rq.error);};req.onerror=()=>reject(req.error);});}
 function writeDb(value){return new Promise((resolve,reject)=>{if(!db)return reject(Error('DB nicht verfügbar'));const tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(value,'state');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}
 async function load(){
- try{const saved=await readDb();if(saved?.projects?.length)state=saved;}catch(e){
-  storageWarning='Nur temporäre Speicherung verfügbar';try{state=JSON.parse(localStorage.getItem('nivelfeldbuch-state'))||state;}catch{}
+ let saved=null;
+ try{saved=await readDb();}catch(e){
+  storageWarning='Nur temporäre Speicherung verfügbar';
+  try{saved=JSON.parse(localStorage.getItem('nivelfeldbuch-state'));}catch{}
  }
- if(!state.projects.length){const created=newRun();state.projects=[created];state.active=created.id;}
- run=state.projects.find(p=>p.id===state.active)||state.projects[0];state.active=run.id;
+ try{state=saved?.projects?.length?migrateState(saved):{version:2,projects:[],active:null};}
+ catch(e){storageWarning='Datenfehler: JSON-Sicherung prüfen';setMsg('Gespeicherte Projekte nicht geladen: '+e.message);return;}
+ if(!state.projects.length){const created=createProject();state.projects=[created];state.active=created.id;}
+ project=state.projects.find(p=>p.id===state.active)||state.projects[0];state.active=project.id;
+ run=getRun(project);project.activeRun=run.id;
+ try{for(const p of state.projects)for(const r of p.runs)checkSequence(r);}catch(e){
+  storageWarning='Fehler im Altbestand – bitte Sicherung prüfen';setMsg(e.message);return;
+ }
  chooseKind('RB');renderAll();fillProject();persist();
  if('serviceWorker' in navigator && location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
@@ -28,12 +36,16 @@ function goTab(tab){activeTab=tab;document.querySelectorAll('.tabs button').forE
 function chooseKind(kind){
  selectedKind=kind;document.querySelectorAll('[data-kind]').forEach(b=>b.classList.toggle('selected',b.dataset.kind===kind));
  const c=current(); if(c && kind==='RB')$('pointInput').value=c.needsBacksight?c.pending:run.startPoint;
- else if(kind!=='RB')$('pointInput').value='';
+ // Beim Umschalten zwischen ZB und VB Punktnummer und Entwurf behalten.
  updatePreview();
 }
 function formatHeight(t){return Number.isFinite(t)?formatM(t)+' m':'—';}
 function renderAll(){calc=current(); if(!calc)return;
- $('activeName').textContent=run.name;$('summaryInfo').textContent=`${run.obs.length} Messungen · ${calc.station} Standpunkte`;
+ $('activeName').textContent=project.name;$('summaryInfo').textContent=`${run.name} · ${run.obs.length} Messungen · ${calc.station} Standpunkte`;
+ $('loopSelect').innerHTML=project.runs.map(r=>`<option value="${escapeHtml(r.id)}">${escapeHtml(r.name)}</option>`).join('');
+ $('loopSelect').value=run.id;
+ $('undoLastQuick').disabled=run.obs.length===0;
+ $('reclassifyLast').classList.toggle('hidden',run.obs.at(-1)?.kind!=='VB');
  $('currentHI').textContent=calc.hi!==null?formatHeight(calc.hi):'—';
  $('currentPoint').textContent=calc.pending || run.startPoint;
  $('stageBadge').textContent=calc.needsBacksight?'Rückblick auf '+calc.pending:'Standpunkt offen · ZB oder VB';
@@ -61,11 +73,11 @@ function saveReading(){
  try{const v=parseMeters(reading,{max:10});if(v>70000)throw Error('Ablesung über 7 m: bitte überprüfen.');if(dist)parseMeters(dist,{max:1000});
   if(calc.needsBacksight &&(selectedKind!=='RB'||point!==calc.pending))throw Error('Rückblick muss auf '+calc.pending+' erfolgen.');
   if(!calc.needsBacksight && selectedKind==='RB')throw Error('Zunächst Zwischen- oder Vorblick erfassen.');
-  if(run.obs.length===0 && run.name==='Neues Nivellement' && !confirm('Das Projekt verwendet noch den Standardnamen und eine beispielhafte Starthöhe. Hast du die richtige Punkthöhe unter „Projekt“ eingestellt?'))return;
+  if(run.obs.length===0 && !run.confirmedStart && !confirm('Für diese Schleife sind noch die Beispielwerte HFP-01 / 100,0000 m eingestellt. Sind Startpunkt und Starthöhe wirklich richtig?'))return;
   if(v===0 && !confirm('Rh = 0,0000 m. Das kann ein Display-Platzhalter sein. Ist dies ein tatsächlich gemessener Wert?'))return;
   const o={id:uuid(),kind:selectedKind,point,reading:formatM(v),dist:dist?formatM(parseMeters(dist,{max:1000})): '',note,time:Date.now(),source:pendingSource,ocrRaw:pendingOcrText,photo:pendingPhoto};
   const candidate={...run,obs:[...run.obs,o]};checkSequence(candidate);
-  run.obs.push(o);persist();pendingPhoto=null;pendingSource='manuell';pendingOcrText='';$('ocrFlag').textContent='';$('readingInput').value='';$('distanceInput').value='';$('noteInput').value='';
+  run.obs.push(o);run.confirmedStart=true;persist();pendingPhoto=null;pendingSource='manuell';pendingOcrText='';$('ocrFlag').textContent='';$('readingInput').value='';$('distanceInput').value='';$('noteInput').value='';$('pointInput').value='';
   const kind=o.kind;renderAll(); if(kind==='VB')chooseKind('RB');else chooseKind('ZB');
   setMsg(kind==='VB'?'Vorblick gespeichert · Wechselpunkt übernommen':'Messung gespeichert');
  }catch(e){setMsg(e.message);}
@@ -95,35 +107,91 @@ function renderLedger(){
  } else $('adjustmentBox').textContent='Noch nicht möglich: '+c.adjustment.reason;
 }
 
-function fillProject(){if(!run)return;for(const [id,key] of [['projectName','name'],['startPoint','startPoint'],['startH','startH'],['endPoint','endPoint'],['endH','endH'],['tolerance','tolerance']])$(id).value=run[key]??'';
+function fillProject(){
+ if(!run)return;
+ $('projectName').value=project.name;
+ $('runName').value=run.name;
+ for(const [id,key] of [['startPoint','startPoint'],['startH','startH'],['endPoint','endPoint'],['endH','endH'],['tolerance','tolerance']])$(id).value=run[key]??'';
  $('startPoint').disabled=run.obs.length>0;$('startH').disabled=run.obs.length>0;
  $('projectCount').textContent=state.projects.length+' Projekte';
- $('projectList').innerHTML=state.projects.map(p=>`<div class="project-entry"><div><strong>${escapeHtml(p.name)}</strong><span class="muted">${p.obs.length} Messungen · ${new Date(p.created).toLocaleDateString('de-DE')}</span></div><button class="${p.id===run.id?'secondary':'ghost'}" data-switch="${escapeHtml(p.id)}">${p.id===run.id?'Aktiv':'Öffnen'}</button></div>`).join('');
+ $('loopCount').textContent=project.runs.length+' Schleifen';
+ $('loopList').innerHTML=project.runs.map(r=>`<div class="project-entry"><div><strong>${escapeHtml(r.name)}</strong><span class="muted">${r.obs.length} Messungen · ${escapeHtml(r.startPoint)} → ${escapeHtml(r.endPoint||'offen')}</span></div><button class="${r.id===run.id?'secondary':'ghost'}" data-loop="${escapeHtml(r.id)}">${r.id===run.id?'Aktiv':'Öffnen'}</button></div>`).join('');
+ $('projectList').innerHTML=state.projects.map(p=>`<div class="project-entry"><div><strong>${escapeHtml(p.name)}</strong><span class="muted">${p.runs.length} Schleife(n) · ${p.runs.reduce((a,r)=>a+r.obs.length,0)} Messungen</span></div><button class="${p.id===project.id?'secondary':'ghost'}" data-switch="${escapeHtml(p.id)}">${p.id===project.id?'Aktiv':'Öffnen'}</button></div>`).join('');
  document.querySelectorAll('[data-switch]').forEach(b=>b.addEventListener('click',()=>switchProject(b.dataset.switch)));
+ document.querySelectorAll('[data-loop]').forEach(b=>b.addEventListener('click',()=>switchLoop(b.dataset.loop)));
+}
+function saveProjectName(){
+ const name=$('projectName').value.trim();if(!name){setMsg('Projektname fehlt.');return;}
+ project.name=name;persist();renderAll();fillProject();setMsg('Projektname gespeichert');
 }
 function saveProject(){try{
- const name=$('projectName').value.trim(),startPoint=$('startPoint').value.trim();if(!name||!startPoint)throw Error('Projektname und Startpunkt sind erforderlich.');
+ const name=$('runName').value.trim(),startPoint=$('startPoint').value.trim();
+ if(!name||!startPoint)throw Error('Schleifenname und Startpunkt sind erforderlich.');
  const startH=$('startH').value.trim();parseMeters(startH,{allowNegative:true});
- const endPoint=$('endPoint').value.trim(),endH=$('endH').value.trim();if((endPoint&&!endH)||(!endPoint&&endH))throw Error('Zielpunkt und Sollhöhe bitte gemeinsam angeben.');
+ const endPoint=$('endPoint').value.trim(),endH=$('endH').value.trim();
+ if((endPoint&&!endH)||(!endPoint&&endH))throw Error('Zielpunkt und Sollhöhe bitte gemeinsam angeben.');
  if(endH)parseMeters(endH,{allowNegative:true});
- const tol=$('tolerance').value.trim().replace(',','.');if(!/^(?:\d+)(?:\.\d+)?$/.test(tol)||+tol<=0||+tol>1000)throw Error('Schlussgrenze bitte als mm >0 angeben.');
+ const tol=$('tolerance').value.trim().replace(',','.');
+ if(!/^(?:\d+)(?:\.\d+)?$/.test(tol)||+tol<=0||+tol>1000)throw Error('Schlussgrenze bitte als mm >0 angeben.');
  if(run.obs.length&&(run.startPoint!==startPoint||parseMeters(run.startH,{allowNegative:true})!==parseMeters(startH,{allowNegative:true})))throw Error('Startpunkt / Starthöhe lassen sich nach Messbeginn nicht ändern.');
- Object.assign(run,{name,startPoint,startH:formatM(parseMeters(startH,{allowNegative:true})),endPoint,endH:endH?formatM(parseMeters(endH,{allowNegative:true})):'',tolerance:tol.replace('.',',')});
- checkSequence(run);persist();renderAll();setMsg('Projekteinstellungen gespeichert');goTab('messen');
- }catch(e){setMsg(e.message);}}
-function switchProject(id){const p=state.projects.find(x=>x.id===id);if(!p)return;run=p;state.active=p.id;pendingPhoto=null;pendingSource='manuell';$('readingInput').value='';$('distanceInput').value='';renderAll();chooseKind(current().needsBacksight?'RB':'ZB');persist();goTab('messen');}
-function addProject(){const r=newRun();state.projects.push(r);run=r;state.active=r.id;persist();renderAll();fillProject();goTab('projekt');setMsg('Neues Projekt erstellt');}
+ const updated={...run,name,startPoint,startH:formatM(parseMeters(startH,{allowNegative:true})),endPoint,
+  endH:endH?formatM(parseMeters(endH,{allowNegative:true})):'',tolerance:tol.replace('.',','),confirmedStart:true};
+ checkSequence(updated);Object.assign(run,updated);
+ persist();renderAll();fillProject();setMsg('Schleifeneinstellungen gespeichert');goTab('messen');
+ }catch(e){setMsg(e.message);}
+}
+function clearDraft(){pendingPhoto=null;pendingSource='manuell';pendingOcrText='';$('ocrFlag').textContent='';
+ for(const id of ['readingInput','distanceInput','noteInput','pointInput'])$(id).value='';}
+function switchProject(id){const p=state.projects.find(x=>x.id===id);if(!p)return;
+ project=p;run=getRun(p);state.active=p.id;project.activeRun=run.id;clearDraft();renderAll();chooseKind(current().needsBacksight?'RB':'ZB');persist();goTab('messen');}
+function switchLoop(id){const r=project.runs.find(x=>x.id===id);if(!r)return;
+ run=r;project.activeRun=r.id;clearDraft();renderAll();chooseKind(current().needsBacksight?'RB':'ZB');persist();goTab('messen');}
+function addProject(){const p=createProject();state.projects.push(p);project=p;run=getRun(p);state.active=p.id;clearDraft();persist();renderAll();fillProject();goTab('projekt');setMsg('Neues Projekt angelegt. Startpunkt und Höhe prüfen.');}
+function addLoop(){
+ const r=createRun(`Schleife ${project.runs.length+1}`,run.tolerance);
+ project.runs.push(r);run=r;project.activeRun=r.id;clearDraft();persist();renderAll();fillProject();goTab('projekt');
+ setMsg('Neue unabhängige Schleife angelegt: Startpunkt und -höhe einstellen!');
+}
 function exportFile(filename,content,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),45000);}
 function safeName(s){return String(s).replace(/[^a-zA-Z0-9äöüÄÖÜß_-]/g,'_').slice(0,45);}
-function reportCsv(){try{exportFile(safeName(run.name)+'_Feldbuch.csv',csvForRun(run),'text/csv;charset=utf-8');}catch(e){setMsg(e.message);}}
-function exportJson(){exportFile('NivelFeldbuch_Sicherung_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({version:1,exportedAt:new Date().toISOString(),...state},null,2),'application/json');}
+function reportCsv(){try{exportFile(safeName(project.name)+'_'+safeName(run.name)+'_Feldbuch.csv',csvForRun(run,project.name),'text/csv;charset=utf-8');}catch(e){setMsg(e.message);}}
+function allLoopsCsv(){try{
+ const content='\uFEFF'+project.runs.map(r=>csvForRun(r,project.name).replace(/^\uFEFF/,'')).join('\r\n\r\n');
+ exportFile(safeName(project.name)+'_alle_Schleifen.csv',content,'text/csv;charset=utf-8');
+ }catch(e){setMsg(e.message);}}
+function exportJson(){exportFile('NivelFeldbuch_Sicherung_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({version:2,exportedAt:new Date().toISOString(),...state},null,2),'application/json');}
 async function importFile(file){if(!file)return;try{
- const obj=JSON.parse(await file.text());if(!obj.projects?.length||!Array.isArray(obj.projects))throw Error('Keine gültige NivelFeldbuch-Sicherung.');
- for(const p of obj.projects){if(!p.id||!p.startPoint||!Array.isArray(p.obs))throw Error('Ungültiges Projekt in der Sicherung.');checkSequence(p);}
- if(!confirm(`Die Sicherung enthält ${obj.projects.length} Projekte. Aktuelle Daten durch die Sicherung ersetzen? Bitte vorab sichern!`))return;
- state={projects:obj.projects,active:obj.active};run=state.projects.find(p=>p.id===state.active)||state.projects[0];state.active=run.id;persist();renderAll();fillProject();goTab('messen');setMsg('Sicherung importiert');
+ const raw=JSON.parse(await file.text()),obj=migrateState(raw);
+ if(!obj.projects.length)throw Error('Keine Projekte in der Sicherung.');
+ for(const p of obj.projects)for(const r of p.runs)checkSequence(r);
+ if(!confirm(`Die Sicherung enthält ${obj.projects.length} Projekte und ${obj.projects.reduce((n,p)=>n+p.runs.length,0)} Schleifen. Aktuelle Daten ersetzen? Bitte zuvor sichern!`))return;
+ state=obj;project=state.projects.find(p=>p.id===state.active)||state.projects[0];run=getRun(project);
+ state.active=project.id;clearDraft();persist();renderAll();fillProject();goTab('messen');setMsg('Sicherung importiert');
  }catch(e){setMsg('Import fehlgeschlagen: '+e.message);}}
-function undo(){if(!run.obs.length){setMsg('Keine Messung vorhanden.');return;}const o=run.obs.at(-1);if(!confirm(`Letzte Messung ${o.kind} auf ${o.point} wirklich löschen?`))return;run.obs.pop();persist();renderAll();chooseKind(current().needsBacksight?'RB':'ZB');setMsg('Messung gelöscht');}
+function recordChange(type,o,details=''){
+ if(!Array.isArray(run.history))run.history=[];
+ run.history.push({time:Date.now(),type,observation:{...o,photo:o.photo?'[Foto gespeichert]':null},details});
+}
+function undo(){
+ if(!run.obs.length){setMsg('Keine Messung vorhanden.');return;}
+ const o=run.obs.at(-1);
+ if(!confirm(`Letzte ${o.kind}-Messung auf ${o.point} zurücknehmen? Die Werte werden zum erneuten Speichern in die Eingabe übernommen.`))return;
+ recordChange('zurückgenommen',o);
+ run.obs.pop();renderAll();chooseKind(o.kind);
+ $('pointInput').value=o.point;$('readingInput').value=o.reading;$('distanceInput').value=o.dist||'';$('noteInput').value=o.note||'';
+ pendingPhoto=o.photo||null;pendingSource=o.source||'manuell';pendingOcrText=o.ocrRaw||'';
+ $('ocrFlag').textContent=pendingPhoto?'Foto aus zurückgenommener Messung erhalten':'';
+ updatePreview();persist();goTab('messen');setMsg('Messung zurückgenommen und in Eingabe übernommen');
+}
+function reclassifyLast(){
+ const o=run.obs.at(-1);
+ if(!o||o.kind!=='VB'){setMsg('Die letzte Messung ist kein Vorblick.');return;}
+ const candidate={...run,obs:[...run.obs.slice(0,-1),{...o,kind:'ZB'}]};
+ try{checkSequence(candidate);}catch(e){setMsg('Änderung nicht möglich: '+e.message);return;}
+ if(!confirm(`Letzten Vorblick auf ${o.point} in Zwischenblick ändern? Ablesung, Entfernung und Foto bleiben erhalten.`))return;
+ recordChange('VB → ZB',o,'Messart von Vorblick auf Zwischenblick geändert');
+ o.kind='ZB';persist();renderAll();chooseKind('ZB');setMsg('Vorblick wurde zum Zwischenblick. Standpunkt bleibt offen.');
+}
 // Fotoablauf
 async function loadPhoto(file){if(!file)return;
  try{const img=new Image();const u=URL.createObjectURL(file);await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('Foto konnte nicht geöffnet werden'));img.src=u;});
@@ -153,9 +221,11 @@ function bind(){
  document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>goTab(b.dataset.tab)));
  document.querySelectorAll('[data-kind]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)chooseKind(b.dataset.kind);}));
  for(const id of ['readingInput','pointInput','distanceInput'])$(id).addEventListener('input',updatePreview);
- on('saveReading',saveReading);on('saveProject',saveProject);on('newProject',addProject);
+ on('saveReading',saveReading);on('saveProject',saveProject);on('saveProjectName',saveProjectName);on('newProject',addProject);on('newLoop',addLoop);
+ $('loopSelect').addEventListener('change',ev=>switchLoop(ev.target.value));
+ on('undoLastQuick',undo);on('reclassifyLast',reclassifyLast);
  $('adjustToggle').addEventListener('change',ev=>{run.showAdjustment=ev.target.checked;persist();renderLedger();});
- on('exportCsv',reportCsv);on('exportJson',exportJson);on('printReport',()=>{goTab('feldbuch');window.print();});on('undoReading',undo);
+ on('exportCsv',reportCsv);on('exportAllLoops',allLoopsCsv);on('exportJson',exportJson);on('printReport',()=>{goTab('feldbuch');window.print();});on('undoReading',undo);
  on('projectSwitcher',()=>goTab('projekt'));
  on('importBackup',()=>$('importFile').click());$('importFile').addEventListener('change',ev=>{importFile(ev.target.files?.[0]);ev.target.value='';});
  on('photoBtn',()=>$('takePhotoInput').click());on('pickPhotoBtn',()=>$('pickPhotoInput').click());

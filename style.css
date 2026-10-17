@@ -3,3 +3,14 @@
 @media print{body{color:#000;background:#fff}.app{width:100%;padding:0}.top,.tabs,.project-strip button,.pane .action-grid,.foot,.hidden,.tab-content:not(#tab-feldbuch),#tab-feldbuch .action-grid{display:none!important}.pane{background:#fff;color:#000;border:1px solid #aaa;break-inside:avoid}.table-scroll{overflow:visible}.table-scroll table{font-size:10pt}th,td{color:#000!important;border-color:#888}#tab-feldbuch{display:block!important}.project-strip{background:none;color:#000;display:block;border:0;padding:8px}}
 
 .toggle-label{display:flex;align-items:center;gap:11px;margin:0 0 13px;line-height:1.45;font-size:13px}.toggle-label input[type=checkbox]{appearance:auto;display:inline-block;margin:0;width:19px;height:19px;accent-color:var(--teal);flex:none}.adjust-rows{font-variant-numeric:tabular-nums}.adjust-rows strong{color:var(--teal)}
+
+/* v1.2: Schnelle Schleifenauswahl und sichere Korrektur der letzten Beobachtung */
+.loop-strip{display:flex;gap:10px;align-items:end;background:#112c39;border:1px solid #315362;border-radius:13px;padding:12px;margin-top:11px}
+.loop-control{flex:1;min-width:0}
+.loop-control label{font-size:10px;letter-spacing:1.1px;color:var(--teal);margin:0 0 6px}
+.loop-control select{width:100%;min-height:42px;border:1px solid #47727d;border-radius:9px;padding:9px 10px;background:#091e2d;color:#eef7f8;font:inherit;font-size:14px;font-weight:650}
+.loop-strip .small{white-space:nowrap;min-height:42px;padding:9px}
+.undo-bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px}
+.undo-bar button{flex:1;min-width:150px}
+@media(max-width:380px){.loop-strip{flex-wrap:wrap}.loop-strip .small{flex:0 0 auto}}
+@media print{.loop-strip,.undo-bar{display:none!important}}
