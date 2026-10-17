@@ -11,6 +11,16 @@ export function parseMeters(input, {allowNegative=false, max=100000}={}) {
 }
 export function formatM(ticks, digits=4) { return (ticks / 10000).toFixed(digits).replace('.',','); }
 export function formatSignedMm(ticks) {return (ticks/10 >= 0 ? '+':'')+(ticks/10).toFixed(1).replace('.',',')+' mm';}
+// Soll-Ablesung und Markierungsabweichung in 0,1-mm-Ticks.
+// Positive Abweichung: gemessene Punkthöhe liegt über der Sollhöhe.
+export function calculateStakeout(instrumentHeight, targetHeight, measuredReading=null){
+ if(!Number.isInteger(instrumentHeight)||!Number.isInteger(targetHeight)||
+    (measuredReading!==null&&!Number.isInteger(measuredReading)))
+   throw new Error('Ungültige Höhen- oder Ablesungswerte.');
+ const requiredReading=instrumentHeight-targetHeight;
+ return {requiredReading, reachableWithUprightStaff:requiredReading>=0,
+   deviation:measuredReading===null?null:requiredReading-measuredReading};
+}
 export function checkSequence(run) {
   if (!run || !Array.isArray(run.obs)) throw new Error('Projekt unvollständig');
   let pending=String(run.startPoint||'').trim(), known=parseMeters(run.startH,{allowNegative:true});
@@ -21,6 +31,10 @@ export function checkSequence(run) {
     const o=run.obs[i],kind=o.kind;
     if(!['RB','ZB','VB'].includes(kind))throw new Error(`Zeile ${i+1}: Ungültiger Messungstyp.`);
     const point=String(o.point||'').trim();if(!point)throw new Error(`Zeile ${i+1}: Punktnummer fehlt.`);
+    if(String(o.targetH??'').trim()){
+      if(kind!=='ZB')throw new Error(`Zeile ${i+1}: Sollhöhe ist nur bei Zwischenblicken zulässig.`);
+      parseMeters(o.targetH,{allowNegative:true});
+    }
     const reading=parseMeters(o.reading,{max:10});
     if(reading>70000)throw new Error(`Zeile ${i+1}: Lattenablesung ist ungewöhnlich hoch.`);
     let distance=null;
@@ -115,13 +129,17 @@ export function csvForRun(run, projectName=run.name) {
   ['Streckenausgleichung berechenbar',c.adjustment.available?'ja':'nein'],[],
   ['Nr','Zeit','Standpunkt','Typ','Punkt','Lattenablesung [m]','Distanz Hd [m]','Berechnete Höhe roh [m]',
     'Steigen/Fallen [m]','Instrumentenhöhe roh [m]','Korrektur [mm]','Höhe streckenproportional korrigiert [m]',
-    'Erfassung','Bemerkung','OCR Rohtext']];
+    'Erfassung','Bemerkung','OCR Rohtext','Absteckung Sollhöhe [m]','Soll-Ablesung [m]','Abweichung Ist minus Soll [mm]']];
  for(let i=0;i<c.rows.length;i++){
   const r=c.rows[i],adjusted=enabled?c.adjustment.rows[i]:null;
+  const targetTicks=String(r.targetH??'').trim()?parseMeters(r.targetH,{allowNegative:true}):null;
+  const st=targetTicks!==null&&r.kind==='ZB'?calculateStakeout(r.hi,targetTicks,r.readingTicks):null;
   out.push([i+1,new Date(r.time).toLocaleString('de-DE'),r.station,r.kind,r.point,formatM(r.readingTicks),
     r.distance===null?'':r.distance.toFixed(4).replace('.',','),formatM(r.height),r.diff===null?'':formatM(r.diff),
     r.hi===null?'':formatM(r.hi),adjusted?(adjusted.correction/10).toFixed(1).replace('.',','):'',
-    adjusted?formatM(adjusted.adjustedHeight):'',r.source||'manuell',r.note||'',r.ocrRaw||'']);
+    adjusted?formatM(adjusted.adjustedHeight):'',r.source||'manuell',r.note||'',r.ocrRaw||'',
+    st?formatM(targetTicks):'',st?formatM(st.requiredReading):'',
+    st?(st.deviation/10).toFixed(1).replace('.',','):'']);
  }
  out.push([],['Summe Rückblicke [m]',formatM(c.sumRB)],['Summe Vorblicke [m]',formatM(c.sumVB)],
    ['Höhenunterschied (ΣRB−ΣVB) [m]',formatM(c.netRise)],

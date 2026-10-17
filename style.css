@@ -19,3 +19,19 @@
 
 /* v1.3.2 hard override for header logo */
 .top-brand{display:flex!important;align-items:center!important;gap:10px!important}.brand-logo{width:28px!important;height:28px!important;max-width:28px!important;max-height:28px!important;min-width:28px!important;min-height:28px!important;object-fit:contain!important;display:block!important;flex:0 0 28px!important}.top-brand img{width:28px!important;height:28px!important;max-width:28px!important;max-height:28px!important;object-fit:contain!important;flex:0 0 28px!important}.top{align-items:center!important}.brand-name{line-height:1.05!important}
+
+/* v1.4: optionaler Höhen-Absteckmodus, touchfreundlich */
+.stakeout-panel{margin:-5px 0 16px;padding:12px 13px;background:#123044;border:1px solid #426979;border-radius:13px}
+.stakeout-switch{margin:0;align-items:center;cursor:pointer}
+.stakeout-switch small{display:block;margin-top:3px;color:var(--muted);font-weight:400}
+#stakeoutFields{padding-top:15px}
+.stakeout-result{display:flex;flex-direction:column;gap:5px;background:#071f2d;border:1px solid #3a7673;border-radius:12px;padding:14px;margin-bottom:10px}
+.stakeout-result strong{font-size:clamp(26px,7vw,36px);font-weight:800;letter-spacing:.2px;color:#75e5d5;font-variant-numeric:tabular-nums}
+.stakeout-message{font-size:12px;line-height:1.5;padding:9px 10px;border-radius:9px;background:#1a3847;color:#e2f3f5}
+.stakeout-message.stakeout-ok{background:#123a34;color:#b7f6d8}
+.stakeout-message.stakeout-warn{background:#3e3526;color:#ffe0a7}
+.stakeout-message.stakeout-above{background:#233c37;color:#b9f6d8}
+.stakeout-message.stakeout-below{background:#42352b;color:#ffdcaf}
+
+/* Dateiauswahl wird ausschließlich über die Kamera-Buttons geöffnet. */
+input[type="file"][hidden]{display:none!important}

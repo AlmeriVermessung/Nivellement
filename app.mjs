@@ -1,6 +1,6 @@
-import {parseMeters,formatM,formatSignedMm,checkSequence,csvForRun} from './calc.mjs?v=1.3.2';
-import {runOcr} from './ocr.mjs?v=1.3.2';
-import {createRun,createProject,migrateState,getRun} from './state.mjs?v=1.3.2';
+import {parseMeters,formatM,formatSignedMm,checkSequence,csvForRun,calculateStakeout} from './calc.mjs?v=1.4';
+import {runOcr} from './ocr.mjs?v=1.4';
+import {createRun,createProject,migrateState,getRun} from './state.mjs?v=1.4';
 const $=id=>document.getElementById(id);
 let state={version:3,projects:[],active:null}, project=null, run=null, calc=null, selectedKind='RB',activeTab='messen';
 let pendingPhoto=null, pendingOcrText='', pendingSource='manuell', photoCanvas=$('photoCanvas'), photoRect={x:.175,y:.38,w:.60,h:.185};
@@ -43,6 +43,8 @@ function goTab(tab){activeTab=tab;document.querySelectorAll('.tabs button').forE
 function chooseKind(kind){
  selectedKind=kind;document.querySelectorAll('[data-kind]').forEach(b=>b.classList.toggle('selected',b.dataset.kind===kind));
  const c=current(); if(c && kind==='RB')$('pointInput').value=c.needsBacksight?c.pending:run.startPoint;
+ // Sollabsteckung ausschließlich beim Zwischenblick anbieten.
+ $('stakeoutPanel').classList.toggle('hidden',kind!=='ZB'||!c||c.needsBacksight);
  // Beim Umschalten zwischen ZB und VB Punktnummer und Entwurf behalten.
  updatePreview();
 }
@@ -62,15 +64,44 @@ function renderAll(){calc=current(); if(!calc)return;
  if(!calc.needsBacksight && selectedKind==='RB')chooseKind('ZB');
  $('pointInput').readOnly=selectedKind==='RB';
  if(selectedKind==='RB')$('pointInput').value=calc.pending;
+ // Diese Liste stammt ausdrücklich aus der aktiven Schleife.
  const recent=[...calc.rows].reverse().slice(0,4);
- $('recentObs').innerHTML=recent.length?recent.map(o=>`<div class="recent-item"><div class="recent-main"><span class="kind-bubble ${o.kind.toLowerCase()}">${o.kind}</span><div><strong>${escapeHtml(o.point)}</strong><div class="muted">${formatM(o.readingTicks)} m · St. ${o.station}</div></div></div><span class="recent-height">${formatM(o.height)} m</span></div>`).join(''):'<p class="muted">Hier erscheinen deine Messungen.</p>';
+ $('recentObs').innerHTML=recent.length?recent.map(o=>`<div class="recent-item"><div class="recent-main"><span class="kind-bubble ${o.kind.toLowerCase()}">${o.kind}</span><div><strong>${escapeHtml(o.point)}</strong><div class="muted">${formatM(o.readingTicks)} m · St. ${o.station}${o.targetH?' · Soll '+escapeHtml(o.targetH)+' m':''}</div></div></div><span class="recent-height">${formatM(o.height)} m</span></div>`).join(''):'<p class="muted">Hier erscheinen deine Messungen.</p>';
  updatePreview(); renderLedger();
 }
+function updateStakeoutPreview(c){
+ const visible=selectedKind==='ZB'&&!c.needsBacksight;
+ $('stakeoutPanel').classList.toggle('hidden',!visible);
+ const enabled=visible&&$('stakeoutMode').checked;
+ $('stakeoutFields').classList.toggle('hidden',!enabled);
+ const number=$('targetReading'),msg=$('stakeoutMessage');
+ msg.className='stakeout-message'; number.textContent='—';
+ $('stakeoutHorizon').textContent=c.hi!==null?'Gerätehorizont: '+formatHeight(c.hi):'Rückblick erforderlich';
+ if(!enabled)return;
+ if(!$('targetHeightInput').value.trim()){msg.textContent='Sollhöhe eingeben – die benötigte Lattenablesung wird sofort berechnet.';return;}
+ try{
+  const target=parseMeters($('targetHeightInput').value,{allowNegative:true});
+  const value=$('readingInput').value.trim();
+  const observed=value?parseMeters(value,{max:10}):null;
+  const st=calculateStakeout(c.hi,target,observed);
+  number.textContent=formatHeight(st.requiredReading);
+  if(!st.reachableWithUprightStaff){
+   msg.classList.add('stakeout-warn');msg.textContent='Sollhöhe liegt über dem Gerätehorizont: negative Soll-Ablesung. Mit normal aufrechter Latte nicht absteckbar.';return;
+  }
+  if(st.deviation===null){msg.textContent='Latte am Höhenriss verschieben, bis '+formatM(st.requiredReading)+' m abgelesen werden. Ist-Ablesung optional zur Kontrolle eingeben.';return;}
+  const mm=Math.abs(st.deviation/10).toFixed(1).replace('.',',');
+  if(st.deviation===0){msg.classList.add('stakeout-ok');msg.textContent='Sollhöhe erreicht: Abweichung 0,0 mm.';}
+  else if(st.deviation>0){msg.classList.add('stakeout-above');msg.textContent='Ist-Höhe '+mm+' mm ÜBER Soll (+). Markierung '+mm+' mm nach unten setzen.';}
+  else{msg.classList.add('stakeout-below');msg.textContent='Ist-Höhe '+mm+' mm UNTER Soll (−). Markierung '+mm+' mm nach oben setzen.';}
+ }catch{msg.classList.add('stakeout-warn');msg.textContent='Bitte Sollhöhe und gegebenenfalls Ist-Ablesung prüfen.';}
+}
 function updatePreview(){const box=$('previewHeight'),hint=$('previewHint');
- try {const c=current(); const read=parseMeters($('readingInput').value,{max:10});
+ const c=current();if(!c)return;
+ try {const read=parseMeters($('readingInput').value,{max:10});
  if(c.needsBacksight){const h=parseMeters(run.startH,{allowNegative:true});box.textContent=formatHeight(c.station===0?h:c.pointHeights.get(c.pending));hint.textContent='Neue Instrumentenhöhe nach Rückblick: '+formatHeight((c.station===0?h:c.pointHeights.get(c.pending))+read);}
  else{box.textContent=formatHeight(c.hi-read);hint.textContent=selectedKind==='VB'?'Nächster Wechselpunkt':'Aktueller Standpunkt';}
  }catch{box.textContent='—';hint.textContent='Lattenablesung eingeben';}
+ updateStakeoutPreview(c);
 }
 function saveReading(){
  if(!calc)return;
@@ -82,11 +113,19 @@ function saveReading(){
   if(!calc.needsBacksight && selectedKind==='RB')throw Error('Zunächst Zwischen- oder Vorblick erfassen.');
   if(run.obs.length===0 && !run.confirmedStart && !confirm('Für diese Schleife sind noch die Beispielwerte HFP-01 / 100,0000 m eingestellt. Sind Startpunkt und Starthöhe wirklich richtig?'))return;
   if(v===0 && !confirm('Rh = 0,0000 m. Das kann ein Display-Platzhalter sein. Ist dies ein tatsächlich gemessener Wert?'))return;
-  const o={id:uuid(),kind:selectedKind,point,reading:formatM(v),dist:dist?formatM(parseMeters(dist,{max:1000})): '',note,time:Date.now(),source:pendingSource,ocrRaw:pendingOcrText,photo:pendingPhoto};
+  let targetH='';
+  if(selectedKind==='ZB'&&$('stakeoutMode').checked){
+   if(!$('targetHeightInput').value.trim())throw Error('Für die Absteckung bitte die Sollhöhe eingeben.');
+   const target=parseMeters($('targetHeightInput').value,{allowNegative:true});
+   const st=calculateStakeout(calc.hi,target,v);
+   if(!st.reachableWithUprightStaff)throw Error('Sollhöhe oberhalb des Gerätehorizonts: mit normaler aufrechter Latte nicht absteckbar.');
+   targetH=formatM(target);
+  }
+  const o={id:uuid(),kind:selectedKind,point,reading:formatM(v),dist:dist?formatM(parseMeters(dist,{max:1000})): '',note,time:Date.now(),source:pendingSource,ocrRaw:pendingOcrText,photo:pendingPhoto,...(targetH?{targetH}:{})};
   const candidate={...run,obs:[...run.obs,o]};checkSequence(candidate);
-  run.obs.push(o);run.confirmedStart=true;persist();pendingPhoto=null;pendingSource='manuell';pendingOcrText='';$('ocrFlag').textContent='';$('readingInput').value='';$('distanceInput').value='';$('noteInput').value='';$('pointInput').value='';
+  run.obs.push(o);run.confirmedStart=true;persist();pendingPhoto=null;pendingSource='manuell';pendingOcrText='';$('ocrFlag').textContent='';$('readingInput').value='';$('distanceInput').value='';$('noteInput').value='';$('pointInput').value='';$('stakeoutMode').checked=false;$('targetHeightInput').value='';
   const kind=o.kind;renderAll(); if(kind==='VB')chooseKind('RB');else chooseKind('ZB');
-  setMsg(kind==='VB'?'Vorblick gespeichert · Wechselpunkt übernommen':'Messung gespeichert');
+  setMsg(kind==='VB'?'Vorblick gespeichert · Wechselpunkt übernommen':targetH?'Zwischenblick mit Absteck-Sollhöhe gespeichert':'Messung gespeichert');
  }catch(e){setMsg(e.message);}
 }
 function renderLedger(){
@@ -97,8 +136,8 @@ function renderLedger(){
  $('obsCounter').textContent=c.rows.length+' Messungen';
  $('obsRows').innerHTML=c.rows.length?c.rows.map((o,i)=>{
   const adj=show?c.adjustment.rows[i]:null;
-  return `<tr><td>${i+1}</td><td>${o.kind}</td><td>${escapeHtml(o.point)}</td><td>${formatM(o.readingTicks)}</td><td>${o.distance===null?'—':o.distance.toFixed(2).replace('.',',')}</td><td>${formatM(o.height)}</td><td>${o.diff===null?'—':formatM(o.diff)}</td>${show?`<td>${formatM(adj.adjustedHeight)}</td><td>${(adj.correction/10).toFixed(1).replace('.',',')}</td>`:''}</tr>`;
- }).join(''):`<tr><td colspan="${show?9:7}" class="muted">Noch keine Messwerte vorhanden.</td></tr>`;
+  return `<tr><td>${i+1}</td><td>${o.kind}</td><td>${escapeHtml(o.point)}</td><td>${formatM(o.readingTicks)}</td><td>${o.distance===null?'—':o.distance.toFixed(2).replace('.',',')}</td><td>${formatM(o.height)}</td><td>${o.diff===null?'—':formatM(o.diff)}</td><td>${o.targetH?escapeHtml(o.targetH):'—'}</td><td>${o.targetH?formatSignedMm(o.height-parseMeters(o.targetH,{allowNegative:true})):'—'}</td>${show?`<td>${formatM(adj.adjustedHeight)}</td><td>${(adj.correction/10).toFixed(1).replace('.',',')}</td>`:''}</tr>`;
+ }).join(''):`<tr><td colspan="${show?11:9}" class="muted">Noch keine Messwerte vorhanden.</td></tr>`;
  $('sumDelta').textContent=formatM(c.netRise)+' m';
  $('riseFall').textContent=formatM(c.riseFallCumulative)+' m'+(c.hi!==null?' *':'');
  $('lengthInfo').textContent=(c.hi!==null?'* Aktueller Standpunkt noch offen. ':'')+
@@ -150,7 +189,7 @@ function saveProject(){try{
  }catch(e){setMsg(e.message);}
 }
 function clearDraft(){pendingPhoto=null;pendingSource='manuell';pendingOcrText='';$('ocrFlag').textContent='';
- for(const id of ['readingInput','distanceInput','noteInput','pointInput'])$(id).value='';}
+ for(const id of ['readingInput','distanceInput','noteInput','pointInput','targetHeightInput'])$(id).value='';$('stakeoutMode').checked=false;updatePreview();}
 function switchProject(id){const p=state.projects.find(x=>x.id===id);if(!p)return;
  project=p;run=getRun(p);state.active=p.id;project.activeRun=run.id;clearDraft();renderAll();chooseKind(current().needsBacksight?'RB':'ZB');persist();goTab('messen');}
 function switchLoop(id){const r=project.runs.find(x=>x.id===id);if(!r)return;
@@ -205,6 +244,7 @@ function undo(){
  recordChange('zurückgenommen',o);
  run.obs.pop();renderAll();chooseKind(o.kind);
  $('pointInput').value=o.point;$('readingInput').value=o.reading;$('distanceInput').value=o.dist||'';$('noteInput').value=o.note||'';
+ $('stakeoutMode').checked=o.kind==='ZB'&&!!o.targetH;$('targetHeightInput').value=o.targetH||'';
  pendingPhoto=o.photo||null;pendingSource=o.source||'manuell';pendingOcrText=o.ocrRaw||'';
  $('ocrFlag').textContent=pendingPhoto?'Foto aus zurückgenommener Messung erhalten':'';
  updatePreview();persist();goTab('messen');setMsg('Messung zurückgenommen und in Eingabe übernommen');
@@ -246,7 +286,8 @@ function on(id,fn){$(id).addEventListener('click',fn)}
 function bind(){
  document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>goTab(b.dataset.tab)));
  document.querySelectorAll('[data-kind]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)chooseKind(b.dataset.kind);}));
- for(const id of ['readingInput','pointInput','distanceInput'])$(id).addEventListener('input',updatePreview);
+ for(const id of ['readingInput','pointInput','distanceInput','targetHeightInput'])$(id).addEventListener('input',updatePreview);
+ $('stakeoutMode').addEventListener('change',updatePreview);
  on('saveReading',saveReading);on('saveProject',saveProject);on('saveProjectName',saveProjectName);on('newProject',addProject);on('newLoop',addLoop);on('deleteLoop',()=>deleteLoop());on('deleteProject',()=>deleteProject());
  $('loopSelect').addEventListener('change',ev=>switchLoop(ev.target.value));
  on('undoLastQuick',undo);on('reclassifyLast',reclassifyLast);
