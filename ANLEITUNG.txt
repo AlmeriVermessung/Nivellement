@@ -1,0 +1,121 @@
+NIVELFELDBUCH 1.1 — INSTALLATION UND BEDIENUNG
+=============================================
+
+INHALT
+Diese ZIP-Datei enthält eine fertige statische Web-App. Sie braucht keine
+Datenbank auf einem Server. Bitte alle Dateien/Ordner zusammen veröffentlichen:
+ index.html, style.css, app.mjs, calc.mjs, ocr.mjs,
+ manifest.webmanifest, sw.js, icons/...
+
+IPHONE-INSTALLATION MIT GITHUB PAGES (kostenlos)
+1. ZIP auf dem PC entpacken.
+2. Auf https://github.com anmelden und ein neues Repository (öffentlich)
+   anlegen, z. B. „nivelfeldbuch“. Keine README erforderlich.
+3. Im Repository „Add file“ -> „Upload files“ wählen.
+   Alle DATEIEN und den Ordner „icons“ hochladen, so dass index.html direkt
+   im Hauptverzeichnis des Repositorys liegt (nicht im Unterordner).
+4. In „Settings“ -> „Pages“ unter „Build and deployment“:
+   Source: „Deploy from a branch“, Branch „main“ und Ordner „/(root)“.
+   Dann „Save“ drücken.
+5. Nach der Veröffentlichung die angezeigte HTTPS-Adresse im Safari des
+   iPhones öffnen, z. B. https://DEIN-NAME.github.io/nivelfeldbuch/ .
+6. Safari -> Teilen -> „Zum Home-Bildschirm“ -> „Als Web-App öffnen“ ->
+   „Hinzufügen“.
+7. Danach NivelFeldbuch über das Home-Bildschirm-Symbol starten.
+
+HINWEIS ZUM DATENSCHUTZ
+Bei dieser Variante sind die PROGRAMMDATEIEN öffentlich (GitHub Pages).
+Deine persönlichen Projekt- und Messdaten werden NICHT bei GitHub hochgeladen.
+Sie werden lokal im Browser- bzw. App-Speicher des iPhones gespeichert.
+Ein gezielter Export ist nötig, um sie zu sichern. Browserdaten können durch
+Gerätewechsel oder Datenlöschung verloren gehen. Fotos werden, falls du sie
+übernimmst, verkleinert und zusammen mit dem Messdatensatz gespeichert.
+
+FÜR PRIVATES HOSTING
+Statt GitHub Pages kannst du die Dateien über einen privaten HTTPS-Webserver
+bereitstellen. Dann ist der Code nicht zwingend öffentlich zugänglich.
+Öffnen als lokale file://-Adresse genügt für die iPhone-PWA-Installation
+nicht zuverlässig, insbesondere nicht für Offline-Speicher und Kamera.
+
+ANWENDUNG
+1. Projekt: Projektname, Startpunkt und bekannte Starthöhe eintragen.
+   Optional: Endpunkt mit bekannter Zielhöhe und Soll-Schlussgrenze [mm].
+2. Messen: Rückblick auf den Startpunkt; ZB für zusätzliche Punkte;
+   Vorblick auf den Wechselpunkt. Danach RB auf denselben Wechselpunkt.
+3. Lattenablesung manuell erfassen ODER Display fotografieren:
+   Foto -> LCD-Bereich einrahmen -> Texterkennung -> Rh/Hd vergleichen,
+   korrigieren -> Werte übernehmen -> Messung speichern.
+4. Unter Feldbuch: Höhen und Abschluss prüfen, CSV und JSON exportieren.
+5. Streckenoption: Hd ist bei jeder Ablesung optional. Für die
+   STRECKENPROPORTIONALE KORREKTUR alle RB- und VB-Distanzen erfassen,
+   Zielpunkt und bekannte Sollhöhe eintragen, Zug mit VB auf Zielpunkt
+   abschließen. Dann im Feldbuch „Korrigierte Höhen zusätzlich anzeigen ..."
+   einschalten. Die Höhen in den Spalten „Höhe korr." und „Korr. mm"
+   sowie im CSV werden zusätzlich angezeigt. Rohhöhen bleiben erhalten.
+   CSV nutzt Semikolon-Trennung und ist für deutsches Excel vorgesehen.
+   PDF / Drucken öffnet die Druckfunktion (auf dem iPhone dort ggf.
+   Druckvorschau als PDF über Teilen sichern).
+
+RECHENREGELN
+Punkthöhe = Instrumentenhöhe - Ablesung.
+Instrumentenhöhe = Punkthöhe + Rückblick.
+Höhenunterschied je vollständig abgeschlossener Aufstellung = RB - VB.
+Die zweite Kontrollrechnung summiert Steigen/Fallen der aufeinanderfolgenden
+Ablesungen innerhalb der Aufstellung. Ein Zwischenblick wird als Punkt
+berechnet, ändert die Instrumentenhöhe aber nicht.
+Bei noch offener Aufstellung sind ΣRB-ΣVB und Steigen/Fallen nicht
+unmittelbar vergleichbar. Schlussabweichung = gemessene Zielhöhe - Sollhöhe.
+Die angezeigte 3-mm-Grenze ist NUR EIN VORSCHLAG und muss projektspezifisch
+festgelegt werden. Optional erfolgt eine EINFACHE STRECKENPROPORTIONALE KORREKTUR der
+Schlussabweichung für einen einzelnen geschlossenen Nivellementzug mit
+bekannter Zielhöhe. Pro Standpunkt zählt die Summe der RB- und VB-Visuren.
+Korrektur am Wechselpunkt j = -Schlussfehler × (kumulierte RB/VB-Länge
+bis einschließlich Standpunkt j) / Gesamt-RB/VB-Länge.
+Die zwischenliegenden Höhenfestpunkte (VB) werden damit korrigiert.
+Zwischenblicke sind Seitensichten: ihre korrigierte Höhe wird aus der
+korrigierten Ausgangshöhe ihres Standpunkts abgeleitet, ohne unabhängige
+statistische Ausgleichung. ZB-Distanzen werden gespeichert und exportiert,
+aber bei der Zuglängengewichtung nicht mitgerechnet.
+Ohne sämtliche RB- und VB-Strecken oder bei offener letzter Aufstellung
+ist diese Korrektur nicht verfügbar. Bei unterbliebener Aktivierung findet
+keine Änderung statt. Dies ist KEINE Netz-Ausgleichung nach kleinsten
+Quadraten und KEIN Ersatz für redundante Messungen. Vor dem produktiven
+Einsatz die Korrektur und alle Resultate unabhängig testen.
+
+FOTOERKENNUNG – WICHTIG
+Die Bilderkennung benötigt beim ersten Einsatz eine Internetverbindung:
+Sie lädt Tesseract.js inklusive OCR-Maschinencode und Sprachdaten nach.
+Die übrigen Dateien werden durch einen Service Worker zwischengespeichert,
+so dass das Feldbuch danach grundsätzlich offline verwendet werden kann.
+Die OCR-Funktion ist offline NICHT garantiert verfügbar.
+Die Erkennung ist ein experimenteller Eingabehelfer – besonders dünne
+LCD-Ziffern können falsch gelesen werden! Vergleich am echten Display
+und ausdrückliche Übernahme sind deshalb obligatorisch. Das gezeigte
+Referenzfoto enthält nur Platzhalter 0,0000 m; andere Zahlen wurden nicht
+mit dem konkreten EL-32 getestet. Alle OCR-Vorschläge lassen sich
+überschreiben, bevor sie ins Messformular übernommen werden.
+
+QUALITÄTSSICHERUNG
+Dieses Werkzeug ist eine erste Eigenentwicklung und KEINE zertifizierte
+Vermessungssoftware. Höhen, Schlussfehler und Exporte vor produktivem
+Einsatz anhand bekannter Nivellementzüge prüfen. Für sicherheitsrelevante
+Aufzugs- oder Bauvermessung unabhängige Kontrollen durchführen.
+Das Programm sichert Rohablesungen, Beobachtungsart, Zeit und optional
+LCD-Fotobeleg. Nur die LETZTE Beobachtung kann rückgängig gemacht werden;
+für eine Änderung einer früheren Beobachtung müssen spätere Messungen
+zunächst zurückgenommen werden.
+
+UPDATE-HINWEIS
+Beim Update die Programmdateien im Repository ersetzen. Den lokalen
+App-Speicher nicht löschen; vorher vollständige JSON-Sicherung erstellen.
+
+UPDATE VON VERSION 1.0 AUF 1.1
+===========================
+1. Zuerst eine JSON-Sicherung aus der bisher veröffentlichten App exportieren.
+2. Dieselben Dateien im bisherigen GitHub-Repository durch die neuen ersetzen.
+   Repository und Pages-URL unverändert lassen, nicht die Browserdaten löschen.
+3. iPhone-App schließen und wieder öffnen. Bei alten Ansichten erneut laden;
+   der Service Worker aktualisiert sich ggf. erst nach zwei Öffnungen.
+4. Bisherige Projekte/Messungen bleiben im lokalen App-Speicher; Version 1.1
+   akzeptiert gespeicherte Projekte ohne Ausgleichungsoption.
+5. Nach dem Update am besten erst einen Testzug erstellen und prüfen.

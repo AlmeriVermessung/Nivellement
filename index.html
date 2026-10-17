@@ -1,0 +1,56 @@
+<!doctype html><html lang="de"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#091724"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="NivelFeldbuch">
+<link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icons/icon-192.png"><link rel="stylesheet" href="./style.css">
+<title>NivelFeldbuch</title>
+</head><body>
+<div id="app" class="app">
+<header class="top"><div class="top-brand"><span class="mark">⌁</span><div><div class="brand-name">Nivel<span>Feldbuch</span></div><div class="subtitle">Höhenmessung & Dokumentation</div></div></div><button class="iconbtn" id="helpBtn" aria-label="Hilfe">?</button></header>
+<main>
+<section class="project-strip"><div><span class="eyebrow">AKTIVES PROJEKT</span><h1 id="activeName">Neues Nivellement</h1><div id="summaryInfo" class="tiny muted">Noch keine Messungen</div></div><button class="ghost small" id="projectSwitcher">Wechseln ▾</button></section>
+<div class="tabs" role="tablist"><button data-tab="messen" class="active">Messen</button><button data-tab="feldbuch">Feldbuch</button><button data-tab="projekt">Projekt</button></div>
+<section id="tab-messen" class="tab-content">
+ <div class="metrics"><div class="metric"><span>Instrumentenhöhe</span><strong id="currentHI">—</strong></div><div class="metric"><span>Letzter Punkt</span><strong id="currentPoint">—</strong></div></div>
+ <div class="stage-line"><span id="stageBadge" class="stage">1. Rückblick erforderlich</span><span id="stationTag" class="muted tiny">Standpunkt 1</span></div>
+ <div class="pane" id="measurePane">
+   <label class="caption-label">MESSUNGSART</label><div class="kinds"><button data-kind="RB" class="selected">↩ Rückblick</button><button data-kind="ZB">• Zwischenblick</button><button data-kind="VB">↪ Vorblick</button></div>
+   <div class="form-grid"><label>Punktnummer<input id="pointInput" autocomplete="off" autocapitalize="characters" placeholder="z. B. WP-01"></label><label>Lattenablesung Rh [m]<input id="readingInput" inputmode="decimal" placeholder="1,2345" autocomplete="off"></label></div>
+   <div class="form-grid"><label>Entfernung Hd [m] <small>(optional)</small><input id="distanceInput" inputmode="decimal" placeholder="12,345" autocomplete="off"></label><label>Bemerkung <small>(optional)</small><input id="noteInput" placeholder="z. B. 2. OG"></label></div>
+   <button class="camera-btn" id="photoBtn"><span>▣</span> Display fotografieren <small>Rh & Hd auslesen</small></button><input type="file" id="takePhotoInput" accept="image/*" capture="environment" hidden><input type="file" id="pickPhotoInput" accept="image/*" hidden>
+   <div class="photo-sub"><button class="link" id="pickPhotoBtn">Vorhandenes Foto wählen</button><span id="ocrFlag" class="tiny muted"></span></div>
+   <div id="readingPreview" class="result-preview"><div><span class="muted tiny">Voraussichtliche Punkthöhe</span><strong id="previewHeight">—</strong></div><span id="previewHint" class="tiny muted"></span></div>
+   <button id="saveReading" class="primary wide">Messung speichern <span>→</span></button>
+ </div>
+ <div class="last-reading"><div class="section-title">LETZTE MESSUNGEN</div><div id="recentObs" class="recent-list"><p class="muted">Hier erscheinen deine Messungen.</p></div></div>
+</section>
+<section id="tab-feldbuch" class="tab-content hidden">
+ <div class="pane tight"><div class="section-head"><h2>Nivellementzug</h2><span id="obsCounter" class="chip">0 Messungen</span></div>
+  <div class="table-scroll"><table><thead><tr><th>#</th><th>Art</th><th>Punkt</th><th>Ablesung</th><th>Hd</th><th>Höhe roh</th><th>Δh</th><th class="adjust-col hidden">Höhe korr.</th><th class="adjust-col hidden">Korr. mm</th></tr></thead><tbody id="obsRows"></tbody></table></div>
+  <div class="total-row"><span>Σ Rückblicke − Σ Vorblicke</span><strong id="sumDelta">—</strong></div><div class="total-row"><span>Steigen / Fallen (Kontrollrechnung)</span><strong id="riseFall">—</strong></div>
+ </div>
+ <div class="pane"><h2>Schlusskontrolle</h2><div id="closureBox" class="muted">Im Reiter Projekt einen Zielhöhenfestpunkt hinterlegen.</div><div id="lengthInfo" class="muted tiny"></div></div>
+ <div class="pane"><h2>Streckenproportionale Ausgleichung</h2><label class="toggle-label"><input type="checkbox" id="adjustToggle"> <span>Korrigierte Höhen zusätzlich anzeigen und exportieren</span></label><div id="adjustmentBox" class="muted tiny"></div><p class="hint">Einfacher Schlussfehlerausgleich eines einzelnen vollständigen Nivellementzugs auf bekannten Endpunkt. Gewichtung nach RB + VB je Standpunkt. Rohmessungen bleiben unverändert. Keine Netz-Ausgleichung.</p></div>
+ <div class="action-grid"><button id="exportCsv" class="secondary">↓ CSV-Export</button><button id="exportJson" class="secondary">↓ Sicherung JSON</button><button id="undoReading" class="ghost">↶ Letzte Messung löschen</button><button id="printReport" class="ghost">▤ PDF / Drucken</button></div>
+</section>
+<section id="tab-projekt" class="tab-content hidden">
+ <div class="pane"><div class="section-head"><h2>Projekteinstellungen</h2><span class="chip">Lokal gespeichert</span></div>
+ <label>Projektname<input id="projectName" autocomplete="off" placeholder="Aufzugsschacht Musterstraße"></label>
+ <div class="form-grid"><label>Startpunkt<input id="startPoint" autocomplete="off" placeholder="HFP-01"></label><label>Starthöhe [m]<input id="startH" inputmode="decimal" placeholder="100,0000"></label></div>
+ <div class="form-grid"><label>Zielpunkt <small>(optional)</small><input id="endPoint" autocomplete="off" placeholder="HFP-02"></label><label>Sollhöhe Ziel [m] <small>(optional)</small><input id="endH" inputmode="decimal" placeholder="100,0000"></label></div>
+ <label>Maximale Schlussabweichung [mm] <small>projektspezifischer Grenzwert</small><input id="tolerance" inputmode="decimal" placeholder="3,0"></label>
+ <button class="primary wide" id="saveProject">Projekteinstellungen speichern</button><p class="hint">Startpunkt und Starthöhe sind nach der ersten Messung gesperrt. Alle Höhenangaben in Metern.</p>
+ </div>
+ <div class="pane"><div class="section-head"><h2>Projektverwaltung</h2><span id="projectCount" class="chip"></span></div><div id="projectList"></div>
+  <button class="secondary wide" id="newProject">+ Neues Projekt</button><button class="ghost wide" id="importBackup">↑ JSON-Sicherung importieren</button><input type="file" id="importFile" accept="application/json,.json" hidden>
+ </div>
+ <div class="pane note"><strong>Datensicherheit</strong><p>Messungen bleiben auf diesem Gerät gespeichert. Bitte nach jedem Messtag eine JSON-Sicherung exportieren. Bei gelöschten Browserdaten oder Gerätewechsel gehen ungesicherte Daten verloren. Fotoerkennung benötigt beim ersten Laden Internet; manuelle Eingaben funktionieren offline.</p></div>
+</section>
+</main>
+<footer class="foot"><span><span class="green-dot"></span> <span id="storageState">Lokales Feldbuch</span></span><span>v1.1 · Baustellenmodus</span></footer>
+</div>
+<div id="photoModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Display auslesen"><div class="modal-body"><div class="modal-title"><h2>Display erkennen</h2><button class="iconbtn" id="photoClose" aria-label="Schließen">×</button></div><p class="muted tiny">Schiebe den türkisfarbenen Rahmen auf die beiden LCD-Zeilen. Der Rahmen lässt sich verschieben und in der Größe ändern.</p><div id="cropWrap" class="crop-wrap"><canvas id="photoCanvas"></canvas><div id="cropRect" class="crop-rect"><span>Rh + Hd</span></div></div><div class="crop-options"><label>Breite <input type="range" min="18" max="100" value="67" id="cropWidth"></label><label>Höhe <input type="range" min="10" max="90" value="22" id="cropHeight"></label></div>
+<button class="secondary wide" id="readOcr">▣ Werte im Rahmen erkennen</button><p class="tiny muted" id="ocrStatus">Das Auslesen erfolgt auf deinem Gerät. Die OCR-Bibliothek muss beim ersten Mal aus dem Internet geladen werden.</p><div id="ocrReadout" class="ocr-readout hidden"><label>Erkanntes Rh [m]<input id="ocrRh" inputmode="decimal"></label><label>Erkanntes Hd [m]<input id="ocrHd" inputmode="decimal"></label><details><summary>Erkannten Rohtext ansehen</summary><pre id="ocrRaw"></pre></details><button class="primary wide" id="acceptOcr">Geprüfte Werte übernehmen</button></div></div></div>
+<div id="helpModal" class="modal hidden" role="dialog" aria-modal="true"><div class="modal-body"><div class="modal-title"><h2>Kurzanleitung</h2><button class="iconbtn" id="helpClose">×</button></div><p><b>1.</b> Im Reiter Projekt Namen, Starthöhe und Startpunkt setzen.</p><p><b>2.</b> Rückblick (RB) auf den bekannten Punkt messen.</p><p><b>3.</b> Zwischenblicke (ZB) für weitere Punkte erfassen; Vorblick (VB) auf Wechselpunkt.</p><p><b>4.</b> Neues Instrument aufstellen: Rückblick auf denselben Wechselpunkt. Die App führt dich durch die Reihenfolge.</p><p><b>5.</b> Für eine Schlusskontrolle den Zielpunkt mit Sollhöhe eintragen und dort einen VB oder ZB messen.</p><p>Die Entfernung Hd kann bei jedem Rück-, Vor- oder Zwischenblick optional eingegeben oder vom Foto übernommen werden. Für die streckenproportionale Ausgleichung eines geschlossenen Zuges müssen alle RB- und VB-Distanzen erfasst sein; ZB-Distanzen bleiben für das Feldbuch dokumentiert.</p><p>Im Feldbuch kannst du die streckenproportionale Korrektur aktivieren. Ursprüngliche Messwerte werden nicht verändert. Zwischenblicke erhalten nur die Korrektur des Standpunktbeginns, keine eigene Ausgleichung.</p><p>Die App berechnet die Höhe aus Instrumentenhöhen sowie eine Steigen/Fallen-Kontrollrechnung. Diese ersetzt keine unabhängige Kontrollmessung oder Geräteprüfung.</p><p>Displayfoto: Auf <b>Display fotografieren</b> tippen, Bildschirm einrahmen, erkennen lassen, Ziffern prüfen und erst danach übernehmen.</p><button class="secondary wide" id="helpDone">Verstanden</button></div></div>
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+<script type="module" src="./app.mjs"></script>
+</body></html>
