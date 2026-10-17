@@ -16,3 +16,6 @@
 @media print{.loop-strip,.undo-bar{display:none!important}}
 
 .row-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+
+/* v1.3.2 hard override for header logo */
+.top-brand{display:flex!important;align-items:center!important;gap:10px!important}.brand-logo{width:28px!important;height:28px!important;max-width:28px!important;max-height:28px!important;min-width:28px!important;min-height:28px!important;object-fit:contain!important;display:block!important;flex:0 0 28px!important}.top-brand img{width:28px!important;height:28px!important;max-width:28px!important;max-height:28px!important;object-fit:contain!important;flex:0 0 28px!important}.top{align-items:center!important}.brand-name{line-height:1.05!important}
