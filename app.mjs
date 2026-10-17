@@ -1,6 +1,6 @@
-import {parseMeters,formatM,formatSignedMm,checkSequence,csvForRun} from './calc.mjs?v=1.3';
-import {runOcr} from './ocr.mjs?v=1.3';
-import {createRun,createProject,migrateState,getRun} from './state.mjs?v=1.3';
+import {parseMeters,formatM,formatSignedMm,checkSequence,csvForRun} from './calc.mjs?v=1.3.1';
+import {runOcr} from './ocr.mjs?v=1.3.1';
+import {createRun,createProject,migrateState,getRun} from './state.mjs?v=1.3.1';
 const $=id=>document.getElementById(id);
 let state={version:3,projects:[],active:null}, project=null, run=null, calc=null, selectedKind='RB',activeTab='messen';
 let pendingPhoto=null, pendingOcrText='', pendingSource='manuell', photoCanvas=$('photoCanvas'), photoRect={x:.175,y:.38,w:.60,h:.185};
